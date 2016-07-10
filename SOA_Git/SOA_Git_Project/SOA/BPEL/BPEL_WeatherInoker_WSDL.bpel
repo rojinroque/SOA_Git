@@ -1,0 +1,88 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<!--
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  Oracle JDeveloper BPEL Designer 
+  
+  Created: Sun Jul 10 13:06:34 IST 2016
+  Author:  Aneesh U Menon
+  Type: BPEL 2.0 Process
+  Purpose: Synchronous BPEL Process
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-->
+<process name="BPEL_WeatherInoker_WSDL"
+               targetNamespace="http://xmlns.oracle.com/SOA_Git/SOA_Git_Project/BPEL_WeatherInoker_WSDL"
+               xmlns="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+               xmlns:client="http://xmlns.oracle.com/SOA_Git/SOA_Git_Project/BPEL_WeatherInoker_WSDL"
+               xmlns:ora="http://schemas.oracle.com/xpath/extension"
+               xmlns:ui="http://xmlns.oracle.com/soa/designer"
+               xmlns:bpelx="http://schemas.oracle.com/bpel/extension"
+         xmlns:bpel="http://docs.oasis-open.org/wsbpel/2.0/process/executable" xmlns:ns1="http://www.webserviceX.NET">
+
+    <import ui:processWSDL="true" namespace="http://xmlns.oracle.com/SOA_Git/SOA_Git_Project/BPEL_WeatherInoker_WSDL" location="../WSDLs/BPEL_WeatherInoker_WSDL.wsdl" importType="http://schemas.xmlsoap.org/wsdl/"/>
+    <!-- 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        PARTNERLINKS                                                      
+        List of services participating in this BPEL process               
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    --> 
+  <partnerLinks>
+    <!-- 
+      The 'client' role represents the requester of this service. It is 
+      used for callback. The location and correlation information associated
+      with the client role are automatically set using WS-Addressing.
+    -->
+    <partnerLink name="bpel_weatherinoker_wsdl_client" partnerLinkType="client:BPEL_WeatherInoker_WSDL" myRole="BPEL_WeatherInoker_WSDLProvider"/>
+    <partnerLink name="Weatherinvoker" partnerLinkType="ns1:Weatherinvoker" partnerRole="GlobalWeatherSoap"
+                 myRole="GlobalWeatherSoap"/>
+  </partnerLinks>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      VARIABLES                                                        
+      List of messages and XML documents used within this BPEL process 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <variables>
+    <!-- Reference to the message passed as input during initiation -->
+    <variable name="inputVariable" messageType="client:BPEL_WeatherInoker_WSDLRequestMessage"/>
+
+    <!-- Reference to the message that will be returned to the requester-->
+    <variable name="outputVariable" messageType="client:BPEL_WeatherInoker_WSDLResponseMessage"/>
+    <variable name="InvokeWSDL_GetWeather_InputVariable" messageType="ns1:GetWeatherSoapIn"/>
+    <variable name="InvokeWSDL_GetWeather_OutputVariable" messageType="ns1:GetWeatherSoapOut"/>
+  </variables>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     ORCHESTRATION LOGIC                                               
+     Set of activities coordinating the flow of messages across the    
+     services integrated within this business process                  
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <sequence name="main">
+
+    <!-- Receive input from requestor. (Note: This maps to operation defined in BPEL_WeatherInoker_WSDL.wsdl) -->
+    <receive name="receiveInput" partnerLink="bpel_weatherinoker_wsdl_client" portType="client:BPEL_WeatherInoker_WSDL" operation="process" variable="inputVariable" createInstance="yes"/>
+    <assign name="Assign_to_WSDL" validate="yes">
+      <copy>
+        <from>$inputVariable.payload/ns1:CityName</from>
+        <to>$InvokeWSDL_GetWeather_InputVariable.parameters/ns1:CityName</to>
+      </copy>
+      <copy>
+        <from>$inputVariable.payload/ns1:CountryName</from>
+        <to>$InvokeWSDL_GetWeather_InputVariable.parameters/ns1:CountryName</to>
+      </copy>
+    </assign>
+    <invoke name="InvokeWSDL" bpelx:invokeAsDetail="no" partnerLink="Weatherinvoker" portType="ns1:GlobalWeatherSoap"
+            operation="GetWeather" inputVariable="InvokeWSDL_GetWeather_InputVariable"
+            outputVariable="InvokeWSDL_GetWeather_OutputVariable"/>
+    <assign name="Assign_from_wsdl" validate="yes">
+      <copy>
+        <from>$InvokeWSDL_GetWeather_OutputVariable.parameters/ns1:GetWeatherResult</from>
+        <to>$outputVariable.payload/ns1:GetWeatherResult</to>
+      </copy>
+    </assign>
+    <!-- Generate reply to synchronous request -->
+    <reply name="replyOutput" partnerLink="bpel_weatherinoker_wsdl_client" portType="client:BPEL_WeatherInoker_WSDL" operation="process" variable="outputVariable"/>
+  </sequence>
+</process>
